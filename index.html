@@ -8,15 +8,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- lamejs MP3 Encoder Library -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap');
         body {
             font-family: 'M PLUS Rounded 1c', sans-serif;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
-        }
-        .eq-bar {
-            transition: height 0.05s ease;
         }
     </style>
 </head>
@@ -31,11 +30,11 @@
                 </div>
                 <div>
                     <h1 class="text-lg sm:text-2xl font-black tracking-wide">グループ学習 録音</h1>
-                    <p class="text-xs text-teal-100 font-bold hidden sm:block">Googleサイト / Googleフォーム連携</p>
+                    <p class="text-xs text-teal-100 font-bold hidden sm:block">Googleフォーム連携 / MP3高音質保存</p>
                 </div>
             </div>
             
-            <button id="openSettingsBtn" class="bg-white/20 hover:bg-white/30 active:scale-95 transition-all text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border border-white/30 shadow-sm">
+            <button id="openSettingsBtn" class="bg-white/20 hover:bg-white/30 active:scale-95 transition-all text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border border-white/30 shadow-sm cursor-pointer">
                 <i class="fa-solid fa-gear"></i>
                 <span>フォーム設定</span>
             </button>
@@ -49,6 +48,21 @@
         <div id="toastNotification" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all max-w-md w-[90%] justify-center text-center">
             <i id="toastIcon" class="fa-solid fa-circle-info text-teal-400 text-lg flex-shrink-0"></i>
             <span id="toastMessage" class="break-words">メッセージ</span>
+        </div>
+
+        <!-- Google Sites Iframe Automatic Detection Warning Banner -->
+        <div id="iframeNoticeBanner" class="hidden bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900">
+            <div class="flex items-center gap-3 text-xs sm:text-sm font-extrabold">
+                <i class="fa-solid fa-circle-exclamation text-amber-500 text-2xl flex-shrink-0"></i>
+                <div>
+                    <p class="font-black text-amber-950">Googleサイト埋め込み時のマイク制限について</p>
+                    <p class="text-[11px] text-amber-800 font-bold">Googleサイトの枠内ではブラウザの仕様によりマイクが遮断されます。「単独画面で開く」をタップしてください。</p>
+                </div>
+            </div>
+            <button id="openStandaloneBtn" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-black px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow transition-all flex-shrink-0 cursor-pointer">
+                <i class="fa-solid fa-up-right-from-square"></i>
+                <span>単独画面で開く</span>
+            </button>
         </div>
 
         <!-- Setup Step Section -->
@@ -107,6 +121,13 @@
                     </div>
                     <span>録音をスタートする</span>
                 </button>
+            </div>
+
+            <!-- Encoding Processing Modal / Overlay -->
+            <div id="encodingStatusCard" class="hidden w-full bg-white rounded-3xl p-8 shadow-xl border-2 border-amber-400 flex flex-col items-center text-center gap-4">
+                <div class="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                <h3 class="font-black text-xl text-slate-800">NotebookLM用 (MP3) に変換中...</h3>
+                <p class="text-xs text-slate-500 font-bold">音声データを高音質な MP3 ファイルへ変換しています。少々お待ちください。</p>
             </div>
 
             <!-- Active Recording Equalizer & Monitor Card -->
@@ -169,7 +190,7 @@
                     <!-- Step 1: Download Audio File -->
                     <button id="downloadBtn" class="w-full bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white font-black text-lg py-4 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer border-b-4 border-slate-950">
                         <i class="fa-solid fa-download text-xl"></i>
-                        <span>1. 音声ファイルを保存 (端末にダウンロード)</span>
+                        <span>1. 音声ファイルを保存 (MP3ダウンロード)</span>
                     </button>
 
                     <!-- Step 2: Open Google Form -->
@@ -232,14 +253,15 @@
     <script>
         // State Variables
         let selectedMinutes = 5;
-        let mediaRecorder = null;
-        let audioChunks = [];
+        let isRecording = false;
         let timerInterval = null;
         let remainingSeconds = 0;
         
         let audioContext = null;
         let analyser = null;
         let microphoneStream = null;
+        let scriptProcessor = null;
+        let pcmBuffers = [];
         let animFrameId = null;
         let audioBlob = null;
         let toastTimeout = null;
@@ -258,12 +280,15 @@
         const startContainer = document.getElementById('startContainer');
         const setupSection = document.getElementById('setupSection');
         const activeRecordingCard = document.getElementById('activeRecordingCard');
+        const encodingStatusCard = document.getElementById('encodingStatusCard');
         const submissionFlowCard = document.getElementById('submissionFlowCard');
         const countdownTimer = document.getElementById('countdownTimer');
         const downloadBtn = document.getElementById('downloadBtn');
         const openFormBtn = document.getElementById('openFormBtn');
         const resetAppBtn = document.getElementById('resetAppBtn');
         const audioPreview = document.getElementById('audioPreview');
+        const iframeNoticeBanner = document.getElementById('iframeNoticeBanner');
+        const openStandaloneBtn = document.getElementById('openStandaloneBtn');
 
         // Modal Elements
         const settingsModal = document.getElementById('settingsModal');
@@ -278,6 +303,22 @@
 
         const canvas = document.getElementById('equalizerCanvas');
         const canvasCtx = canvas ? canvas.getContext('2d') : null;
+
+        // Check if app is running inside an iframe (e.g. Google Sites embed)
+        function inIframe() {
+            try {
+                return window.self !== window.top;
+            } catch (e) {
+                return true;
+            }
+        }
+
+        // Open app in standalone new window
+        if (openStandaloneBtn) {
+            openStandaloneBtn.addEventListener('click', () => {
+                window.open(window.location.href, '_blank');
+            });
+        }
 
         // Toast Message Helper
         function showToast(message, iconClass = 'fa-circle-info', iconColorClass = 'text-teal-400') {
@@ -349,29 +390,6 @@
             });
         });
 
-        // Detect supported MIME Types for MediaRecorder
-        function getSupportedMimeType() {
-            if (typeof MediaRecorder === 'undefined') return '';
-            const types = [
-                'audio/webm;codecs=opus',
-                'audio/webm',
-                'audio/mp4',
-                'audio/aac',
-                'audio/ogg;codecs=opus'
-            ];
-            for (const type of types) {
-                if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type)) return type;
-            }
-            return '';
-        }
-
-        function getFileExtension(mimeType) {
-            if (!mimeType) return 'webm';
-            if (mimeType.includes('mp4') || mimeType.includes('aac')) return 'm4a';
-            if (mimeType.includes('ogg')) return 'ogg';
-            return 'webm';
-        }
-
         // Start Recording Handler
         async function startRecording() {
             const groupName = groupNameInput.value.trim();
@@ -381,7 +399,7 @@
             }
 
             try {
-                // Directly request user media stream upon button click (critical for iOS/iFrames)
+                // Request Microphone Stream
                 microphoneStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         echoCancellation: true,
@@ -390,48 +408,36 @@
                     }
                 });
 
-                audioChunks = [];
-                const mimeType = getSupportedMimeType();
-                const recorderOptions = mimeType ? { mimeType } : {};
+                pcmBuffers = [];
+                isRecording = true;
 
-                try {
-                    mediaRecorder = new MediaRecorder(microphoneStream, recorderOptions);
-                } catch (recErr) {
-                    mediaRecorder = new MediaRecorder(microphoneStream);
+                // Setup AudioContext & Equalizer & PCM Capture Node
+                const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioCtxClass();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
                 }
 
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data && e.data.size > 0) {
-                        audioChunks.push(e.data);
-                    }
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                
+                // Analyser for Equalizer
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 64;
+                source.connect(analyser);
+
+                // ScriptProcessor for MP3 PCM Capture (Mono, 4096 buffer size)
+                scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                scriptProcessor.onaudioprocess = (e) => {
+                    if (!isRecording) return;
+                    const inputBuffer = e.inputBuffer.getChannelData(0);
+                    pcmBuffers.push(new Float32Array(inputBuffer));
                 };
 
-                mediaRecorder.onstop = () => {
-                    const finalType = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm';
-                    audioBlob = new Blob(audioChunks, { type: finalType });
+                source.connect(scriptProcessor);
+                scriptProcessor.connect(audioContext.destination);
 
-                    // Set up local audio player preview
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    audioPreview.src = audioUrl;
-
-                    // Clean up microphone tracks
-                    if (microphoneStream) {
-                        microphoneStream.getTracks().forEach(track => track.stop());
-                        microphoneStream = null;
-                    }
-
-                    if (animFrameId) cancelAnimationFrame(animFrameId);
-
-                    activeRecordingCard.classList.add('hidden');
-                    submissionFlowCard.classList.remove('hidden');
-                    showToast('録音が完了しました！提出用にダウンロードしてください。', 'fa-circle-check', 'text-emerald-400');
-                };
-
-                // Start recording in 1 second chunks
-                mediaRecorder.start(1000);
-
-                // Initialize Audio Equalizer Visualizer
-                setupEqualizer(microphoneStream);
+                // Start Visual Equalizer
+                setupEqualizer();
 
                 // UI Layout updates
                 activeGroupNameDisplay.textContent = groupName;
@@ -457,26 +463,105 @@
 
             } catch (err) {
                 console.error("Microphone access error:", err);
-                let msg = 'マイクにアクセスできませんでした。';
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    msg = 'マイクの使用許可が拒否されています。ブラウザのアドレスバー付近の設定からマイク許可を【オン】にしてください。';
-                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-                    msg = 'マイクが見つかりませんでした。端末のマイク接続を確認してください。';
+                if (inIframe()) {
+                    showToast('Googleサイトの埋め込み制限によりマイクがブロックされました。「単独画面で開く」を試してください。', 'fa-triangle-exclamation', 'text-rose-400');
+                } else {
+                    showToast('マイクにアクセスできませんでした。ブラウザの設定でマイクを許可してください。', 'fa-triangle-exclamation', 'text-rose-400');
                 }
-                showToast(msg, 'fa-triangle-exclamation', 'text-rose-400');
             }
         }
 
-        // Stop Recording Handler
-        function stopRecording() {
+        // Stop Recording & Convert to MP3
+        async function stopRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
 
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+
+            // Hide recording UI, show encoding status UI
+            activeRecordingCard.classList.add('hidden');
+            encodingStatusCard.classList.remove('hidden');
+
+            // Disconnect Audio Context Nodes
+            if (scriptProcessor) scriptProcessor.disconnect();
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
             }
+
+            // Convert Float32 PCM to MP3 Blob asynchronously
+            setTimeout(async () => {
+                try {
+                    audioBlob = await convertPcmToMp3(pcmBuffers, audioContext ? audioContext.sampleRate : 44100);
+
+                    // Set preview source
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPreview.src = audioUrl;
+
+                    if (audioContext) {
+                        audioContext.close();
+                        audioContext = null;
+                    }
+
+                    encodingStatusCard.classList.add('hidden');
+                    submissionFlowCard.classList.remove('hidden');
+                    showToast('NotebookLM対応の MP3 ファイル作成が完了しました！', 'fa-circle-check', 'text-emerald-400');
+                } catch (e) {
+                    console.error("MP3 Encoding failed", e);
+                    encodingStatusCard.classList.add('hidden');
+                    submissionFlowCard.classList.remove('hidden');
+                    showToast('MP3変換処理中にエラーが発生しました。', 'fa-triangle-exclamation', 'text-rose-400');
+                }
+            }, 100);
+        }
+
+        // Convert PCM Array to MP3 Blob using lamejs
+        function convertPcmToMp3(buffers, sampleRate) {
+            return new Promise((resolve) => {
+                let totalSamples = 0;
+                for (let i = 0; i < buffers.length; i++) {
+                    totalSamples += buffers[i].length;
+                }
+
+                const pcmData = new Float32Array(totalSamples);
+                let offset = 0;
+                for (let i = 0; i < buffers.length; i++) {
+                    pcmData.set(buffers[i], offset);
+                    offset += buffers[i].length;
+                }
+
+                const samples = new Int16Array(pcmData.length);
+                for (let i = 0; i < pcmData.length; i++) {
+                    const s = Math.max(-1, Math.min(1, pcmData[i]));
+                    samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+
+                // Mono, sampleRate, 128 kbps
+                const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+                const mp3Data = [];
+                const sampleBlockSize = 1152;
+
+                for (let i = 0; i < samples.length; i += sampleBlockSize) {
+                    const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+                    const mp3buf = mp3encoder.encodeBuffer(sampleChunk);
+                    if (mp3buf.length > 0) {
+                        mp3Data.push(mp3buf);
+                    }
+                }
+
+                const mp3buf = mp3encoder.flush();
+                if (mp3buf.length > 0) {
+                    mp3Data.push(mp3buf);
+                }
+
+                const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+                resolve(blob);
+            });
         }
 
         function updateTimerDisplay() {
@@ -492,95 +577,74 @@
         }
 
         // Audio Equalizer Visualizer Logic
-        function setupEqualizer(stream) {
-            if (!canvas || !canvasCtx) return;
+        function setupEqualizer() {
+            if (!canvas || !canvasCtx || !analyser) return;
             resizeCanvas();
 
-            try {
-                const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtxClass) return;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
 
-                audioContext = new AudioCtxClass();
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume();
+            function renderEqualizer() {
+                if (!isRecording) return;
+                animFrameId = requestAnimationFrame(renderEqualizer);
+                analyser.getByteFrequencyData(dataArray);
+
+                canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const barWidth = (canvas.width / bufferLength) * 1.6;
+                let barHeight;
+                let x = 0;
+                let totalVol = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+                    totalVol += dataArray[i];
+
+                    const gradient = canvasCtx.createLinearGradient(0, canvas.height, 0, 0);
+                    gradient.addColorStop(0, '#10b981');
+                    gradient.addColorStop(0.6, '#14b8a6');
+                    gradient.addColorStop(1, '#06b6d4');
+
+                    canvasCtx.fillStyle = gradient;
+                    
+                    const radius = Math.min(barWidth / 2, 4);
+                    const y = canvas.height - barHeight;
+                    
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(x + radius, y);
+                    canvasCtx.lineTo(x + barWidth - 2 - radius, y);
+                    canvasCtx.quadraticCurveTo(x + barWidth - 2, y, x + barWidth - 2, y + radius);
+                    canvasCtx.lineTo(x + barWidth - 2, canvas.height);
+                    canvasCtx.lineTo(x, canvas.height);
+                    canvasCtx.lineTo(x, y + radius);
+                    canvasCtx.quadraticCurveTo(x, y, x + radius, y);
+                    canvasCtx.closePath();
+                    canvasCtx.fill();
+
+                    x += barWidth + 2;
                 }
 
-                analyser = audioContext.createAnalyser();
-                const source = audioContext.createMediaStreamSource(stream);
-                source.connect(analyser);
-
-                analyser.fftSize = 64;
-                const bufferLength = analyser.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
-
-                function renderEqualizer() {
-                    animFrameId = requestAnimationFrame(renderEqualizer);
-                    analyser.getByteFrequencyData(dataArray);
-
-                    // Clear canvas
-                    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-
-                    const barWidth = (canvas.width / bufferLength) * 1.6;
-                    let barHeight;
-                    let x = 0;
-
-                    let totalVol = 0;
-
-                    for (let i = 0; i < bufferLength; i++) {
-                        barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
-                        totalVol += dataArray[i];
-
-                        // Gradient bars (Emerald to Teal to Cyan)
-                        const gradient = canvasCtx.createLinearGradient(0, canvas.height, 0, 0);
-                        gradient.addColorStop(0, '#10b981');
-                        gradient.addColorStop(0.6, '#14b8a6');
-                        gradient.addColorStop(1, '#06b6d4');
-
-                        canvasCtx.fillStyle = gradient;
-                        
-                        // Rounded top bars
-                        const radius = Math.min(barWidth / 2, 4);
-                        const y = canvas.height - barHeight;
-                        
-                        canvasCtx.beginPath();
-                        canvasCtx.moveTo(x + radius, y);
-                        canvasCtx.lineTo(x + barWidth - 2 - radius, y);
-                        canvasCtx.quadraticCurveTo(x + barWidth - 2, y, x + barWidth - 2, y + radius);
-                        canvasCtx.lineTo(x + barWidth - 2, canvas.height);
-                        canvasCtx.lineTo(x, canvas.height);
-                        canvasCtx.lineTo(x, y + radius);
-                        canvasCtx.quadraticCurveTo(x, y, x + radius, y);
-                        canvasCtx.closePath();
-                        canvasCtx.fill();
-
-                        x += barWidth + 2;
-                    }
-
-                    // Display microphone volume status text
-                    const avgVol = totalVol / bufferLength;
-                    const micSensitivityText = document.getElementById('micSensitivityText');
-                    if (micSensitivityText) {
-                        if (avgVol > 15) {
-                            micSensitivityText.textContent = "🟢 音声を入力中 (正常)";
-                            micSensitivityText.className = "text-emerald-400 font-bold";
-                        } else {
-                            micSensitivityText.textContent = "🟡 待機中 (声を出してください)";
-                            micSensitivityText.className = "text-amber-400 font-bold";
-                        }
+                const avgVol = totalVol / bufferLength;
+                const micSensitivityText = document.getElementById('micSensitivityText');
+                if (micSensitivityText) {
+                    if (avgVol > 15) {
+                        micSensitivityText.textContent = "🟢 音声を入力中 (正常)";
+                        micSensitivityText.className = "text-emerald-400 font-bold";
+                    } else {
+                        micSensitivityText.textContent = "🟡 待機中 (声を出してください)";
+                        micSensitivityText.className = "text-amber-400 font-bold";
                     }
                 }
-
-                renderEqualizer();
-            } catch (e) {
-                console.error("Equalizer setup failed", e);
             }
+
+            renderEqualizer();
         }
 
         // Attach event listeners
         startRecordBtn.addEventListener('click', startRecording);
         stopRecordBtn.addEventListener('click', stopRecording);
 
-        // Download Recording Logic
+        // Download Recording Logic (.mp3)
         downloadBtn.addEventListener('click', () => {
             if (!audioBlob) return;
 
@@ -588,8 +652,7 @@
             const timeStr = `${now.getMonth()+1}月${now.getDate()}日_${now.getHours()}時${now.getMinutes()}分`;
             const rawGroupName = groupNameInput.value.trim() || "グループ名";
             const safeGroupName = rawGroupName.replace(/[\\/:*?"<>|]/g, '_');
-            const ext = getFileExtension(audioBlob.type);
-            const fileName = `【${safeGroupName}】_録音データ_${timeStr}.${ext}`;
+            const fileName = `【${safeGroupName}】_録音データ_${timeStr}.mp3`;
 
             const url = URL.createObjectURL(audioBlob);
             const a = document.createElement('a');
@@ -604,7 +667,7 @@
                 URL.revokeObjectURL(url);
             }, 200);
 
-            showToast('ファイルをダウンロードしました！Googleフォームから提出してください。', 'fa-circle-check', 'text-emerald-400');
+            showToast('MP3ファイルを保存しました！NotebookLMやGoogleフォームでご活用ください。', 'fa-circle-check', 'text-emerald-400');
         });
 
         // Reset App State
@@ -619,7 +682,7 @@
         acceptResetBtn.addEventListener('click', () => {
             confirmResetModal.classList.add('hidden');
             audioBlob = null;
-            audioChunks = [];
+            pcmBuffers = [];
             audioPreview.src = '';
             submissionFlowCard.classList.add('hidden');
             activeRecordingCard.classList.add('hidden');
@@ -662,6 +725,11 @@
                     openFormBtn.href = "#";
                 }
             } catch(e) {}
+
+            if (inIframe()) {
+                iframeNoticeBanner.classList.remove('hidden');
+            }
+
             window.addEventListener('resize', resizeCanvas);
         });
     </script>
