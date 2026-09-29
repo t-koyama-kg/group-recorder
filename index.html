@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>グループ学習 録音アプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap');
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .eq-bar {
+            transition: height 0.05s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-teal-600 via-emerald-600 to-indigo-600 text-white shadow-lg py-4 px-4 sm:px-6 sticky top-0 z-20">
+        <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/20 p-2.5 rounded-2xl backdrop-blur-sm">
+                    <i class="fa-solid fa-microphone-lines text-white text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-2xl font-black tracking-wide">グループ学習 録音</h1>
+                    <p class="text-xs text-teal-100 font-bold hidden sm:block">Googleサイト / Googleフォーム連携</p>
+                </div>
+            </div>
+            
+            <button id="openSettingsBtn" class="bg-white/20 hover:bg-white/30 active:scale-95 transition-all text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border border-white/30 shadow-sm">
+                <i class="fa-solid fa-gear"></i>
+                <span>フォーム設定</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-2xl mx-auto w-full p-4 md:p-6 flex-grow flex flex-col justify-center gap-5">
+
+        <!-- Toast Notification -->
+        <div id="toastNotification" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all max-w-md w-[90%] justify-center text-center">
+            <i id="toastIcon" class="fa-solid fa-circle-info text-teal-400 text-lg flex-shrink-0"></i>
+            <span id="toastMessage" class="break-words">メッセージ</span>
+        </div>
+
+        <!-- Setup Step Section -->
+        <section id="setupSection" class="bg-white rounded-3xl p-5 md:p-7 shadow-lg border border-slate-200/80 transition-all flex flex-col gap-6">
+            
+            <!-- Step 1: Group Name Input -->
+            <div class="space-y-2">
+                <div class="flex items-center gap-2 text-slate-800 font-extrabold text-base sm:text-lg">
+                    <span class="bg-emerald-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-black shadow-md">1</span>
+                    <h2>グループ名を入力 <span class="text-xs text-rose-500 font-extrabold">【必須】</span></h2>
+                </div>
+                <input type="text" id="groupNameInput" placeholder="例: 1班、Aグループ、山田・田中ペア" 
+                    class="w-full p-4 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-emerald-500 font-bold text-base bg-slate-50 focus:bg-white transition-all shadow-inner">
+                <p id="groupNameWarning" class="text-xs text-rose-500 font-extrabold mt-1 ml-1 flex items-center gap-1">
+                    <i class="fa-solid fa-circle-exclamation"></i> グループ名を入力すると録音ボタンが押せます
+                </p>
+            </div>
+
+            <!-- Step 2: Timer Duration Selection -->
+            <div class="space-y-2">
+                <div class="flex items-center gap-2 text-slate-800 font-extrabold text-base sm:text-lg">
+                    <span class="bg-emerald-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-black shadow-md">2</span>
+                    <h2>録音時間を選択</h2>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button type="button" data-minutes="3" class="time-btn p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 group cursor-pointer">
+                        <span class="text-2xl font-black text-slate-700 group-hover:text-emerald-600">3分</span>
+                        <span class="text-[11px] font-bold text-slate-400">短時間ワーク</span>
+                    </button>
+                    <button type="button" data-minutes="5" class="time-btn p-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-50/80 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 group ring-2 ring-emerald-400/30 cursor-pointer">
+                        <span class="text-2xl font-black text-emerald-700">5分</span>
+                        <span class="text-[11px] font-bold text-emerald-600">標準ワーク</span>
+                    </button>
+                    <button type="button" data-minutes="10" class="time-btn p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 group cursor-pointer">
+                        <span class="text-2xl font-black text-slate-700 group-hover:text-emerald-600">10分</span>
+                        <span class="text-[11px] font-bold text-slate-400">しっかり話し合い</span>
+                    </button>
+                    <button type="button" data-minutes="15" class="time-btn p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 group cursor-pointer">
+                        <span class="text-2xl font-black text-slate-700 group-hover:text-emerald-600">15分</span>
+                        <span class="text-[11px] font-bold text-slate-400">長時間の討論</span>
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Recording Action Section -->
+        <section class="flex flex-col items-center justify-center">
+            
+            <!-- Start Record Button -->
+            <div id="startContainer" class="w-full">
+                <button id="startRecordBtn" disabled class="w-full bg-slate-300 text-slate-500 font-black text-xl sm:text-2xl py-6 px-6 rounded-3xl shadow-md transition-all flex items-center justify-center gap-3 cursor-not-allowed">
+                    <div id="startIconBg" class="w-10 h-10 rounded-full bg-white/40 flex items-center justify-center">
+                        <i id="startIcon" class="fa-solid fa-microphone text-slate-400 text-xl"></i>
+                    </div>
+                    <span>録音をスタートする</span>
+                </button>
+            </div>
+
+            <!-- Active Recording Equalizer & Monitor Card -->
+            <div id="activeRecordingCard" class="hidden w-full bg-white rounded-3xl p-6 shadow-xl border-2 border-rose-300 flex flex-col items-center text-center gap-5 relative overflow-hidden">
+                
+                <!-- Group & Recording Status Badge -->
+                <div class="flex items-center gap-2 bg-rose-100 text-rose-700 font-extrabold px-4 py-1.5 rounded-full text-xs sm:text-sm">
+                    <span class="w-3 h-3 bg-rose-500 rounded-full animate-ping"></span>
+                    <span>録音中：<span id="activeGroupNameDisplay" class="underline font-black"></span></span>
+                </div>
+
+                <!-- Live Countdown Timer -->
+                <div class="flex flex-col items-center">
+                    <span class="text-xs font-bold text-slate-400 mb-0.5">残り時間</span>
+                    <div id="countdownTimer" class="text-6xl sm:text-7xl font-black text-slate-800 font-mono tracking-wider">
+                        05:00
+                    </div>
+                </div>
+
+                <!-- Audio Equalizer Visualizer Block -->
+                <div class="w-full bg-slate-950 rounded-2xl p-4 flex flex-col gap-2 shadow-inner border border-slate-800">
+                    <div class="flex justify-between items-center text-[10px] text-teal-400 font-mono font-bold tracking-widest px-1">
+                        <span class="flex items-center gap-1">
+                            <i class="fa-solid fa-chart-simple text-xs"></i> AUDIO EQUALIZER
+                        </span>
+                        <span id="micSensitivityText" class="text-slate-400">音量入力中...</span>
+                    </div>
+
+                    <!-- Canvas Visualizer for Frequency & Waveform -->
+                    <div class="w-full h-24 relative flex items-center justify-center">
+                        <canvas id="equalizerCanvas" class="w-full h-full rounded-xl"></canvas>
+                    </div>
+                </div>
+
+                <!-- Stop Recording Button -->
+                <button id="stopRecordBtn" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-[0.98] text-white font-black text-xl py-4 px-6 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3 cursor-pointer">
+                    <i class="fa-solid fa-square text-lg"></i>
+                    <span>録音を停止して保存</span>
+                </button>
+            </div>
+
+            <!-- Submission & Download Flow Area -->
+            <div id="submissionFlowCard" class="hidden w-full bg-white rounded-3xl p-6 shadow-xl border-2 border-emerald-400 flex flex-col gap-5">
+                
+                <div class="bg-emerald-50 text-emerald-800 p-4 rounded-2xl text-center border border-emerald-200 space-y-1">
+                    <i class="fa-solid fa-circle-check text-emerald-500 text-3xl"></i>
+                    <h3 class="font-black text-xl">録音が完了しました！</h3>
+                    <p class="text-xs text-emerald-700 font-bold">音声を確認し、ダウンロードして提出してください</p>
+                </div>
+
+                <!-- Audio Player Preview -->
+                <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1.5">
+                    <span class="text-xs font-bold text-slate-500 ml-1 flex items-center gap-1">
+                        <i class="fa-solid fa-volume-high text-teal-600"></i> 録音内容のプレビュー再生
+                    </span>
+                    <audio id="audioPreview" controls class="w-full h-11 rounded-xl outline-none"></audio>
+                </div>
+
+                <div class="space-y-3">
+                    <!-- Step 1: Download Audio File -->
+                    <button id="downloadBtn" class="w-full bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white font-black text-lg py-4 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer border-b-4 border-slate-950">
+                        <i class="fa-solid fa-download text-xl"></i>
+                        <span>1. 音声ファイルを保存 (端末にダウンロード)</span>
+                    </button>
+
+                    <!-- Step 2: Open Google Form -->
+                    <a id="openFormBtn" href="#" target="_blank" rel="noopener noreferrer" class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-black text-lg py-4 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-3 text-center no-underline cursor-pointer border-b-4 border-indigo-900">
+                        <i class="fa-brands fa-google-drive text-xl"></i>
+                        <span>2. Googleフォームを開いて提出</span>
+                    </a>
+                </div>
+
+                <button id="resetAppBtn" class="mt-1 text-slate-400 hover:text-slate-600 text-xs font-bold text-center underline cursor-pointer">
+                    もう一度最初から録音し直す
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Form URL Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-lg text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-teal-600"></i>
+                    提出用Googleフォーム設定
+                </h3>
+                <button id="closeSettingsBtn" class="text-slate-400 hover:text-slate-600 p-1 text-2xl font-bold cursor-pointer">&times;</button>
+            </div>
+
+            <div class="space-y-3 text-sm">
+                <label for="formUrlInput" class="block font-extrabold text-slate-700">GoogleフォームのURL</label>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    生徒が音声ファイルをアップロードして提出するためのGoogleフォーム（またはGoogleドライブフォルダ）の共有URLを入力してください。
+                </p>
+                <input type="url" id="formUrlInput" placeholder="https://forms.gle/..." 
+                    class="w-full p-3.5 rounded-xl border border-slate-300 focus:outline-none focus:border-teal-500 font-mono text-xs bg-slate-50 focus:bg-white">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="saveSettingsBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer">
+                    設定を保存する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Confirmation Modal -->
+    <div id="confirmResetModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4 text-center">
+            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-4xl mx-auto"></i>
+            <h3 class="font-black text-lg text-slate-800">もう一度録音しますか？</h3>
+            <p class="text-xs text-slate-500 font-bold">現在の録音データは削除されます。</p>
+            <div class="flex gap-3 mt-2">
+                <button id="cancelResetBtn" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl text-sm cursor-pointer">キャンセル</button>
+                <button id="acceptResetBtn" class="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-sm cursor-pointer">やり直す</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Variables
+        let selectedMinutes = 5;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let timerInterval = null;
+        let remainingSeconds = 0;
+        
+        let audioContext = null;
+        let analyser = null;
+        let microphoneStream = null;
+        let animFrameId = null;
+        let audioBlob = null;
+        let toastTimeout = null;
+
+        const STORAGE_FORM_KEY = "group_recorder_form_url";
+
+        // DOM Elements
+        const groupNameInput = document.getElementById('groupNameInput');
+        const groupNameWarning = document.getElementById('groupNameWarning');
+        const activeGroupNameDisplay = document.getElementById('activeGroupNameDisplay');
+        const startRecordBtn = document.getElementById('startRecordBtn');
+        const startIconBg = document.getElementById('startIconBg');
+        const startIcon = document.getElementById('startIcon');
+        const stopRecordBtn = document.getElementById('stopRecordBtn');
+        const timeBtns = document.querySelectorAll('.time-btn');
+        const startContainer = document.getElementById('startContainer');
+        const setupSection = document.getElementById('setupSection');
+        const activeRecordingCard = document.getElementById('activeRecordingCard');
+        const submissionFlowCard = document.getElementById('submissionFlowCard');
+        const countdownTimer = document.getElementById('countdownTimer');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const openFormBtn = document.getElementById('openFormBtn');
+        const resetAppBtn = document.getElementById('resetAppBtn');
+        const audioPreview = document.getElementById('audioPreview');
+
+        // Modal Elements
+        const settingsModal = document.getElementById('settingsModal');
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const formUrlInput = document.getElementById('formUrlInput');
+
+        const confirmResetModal = document.getElementById('confirmResetModal');
+        const cancelResetBtn = document.getElementById('cancelResetBtn');
+        const acceptResetBtn = document.getElementById('acceptResetBtn');
+
+        const canvas = document.getElementById('equalizerCanvas');
+        const canvasCtx = canvas ? canvas.getContext('2d') : null;
+
+        // Toast Message Helper
+        function showToast(message, iconClass = 'fa-circle-info', iconColorClass = 'text-teal-400') {
+            const toast = document.getElementById('toastNotification');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMsg = document.getElementById('toastMessage');
+            if (!toast || !toastIcon || !toastMsg) return;
+
+            toastIcon.className = `fa-solid ${iconClass} ${iconColorClass}`;
+            toastMsg.textContent = message;
+            toast.classList.remove('hidden');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 4500);
+        }
+
+        // Group Name Input Validation
+        groupNameInput.addEventListener('input', () => {
+            const val = groupNameInput.value.trim();
+            if (val.length > 0) {
+                groupNameWarning.classList.add('hidden');
+                startRecordBtn.disabled = false;
+                startRecordBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-xl sm:text-2xl py-6 px-6 rounded-3xl shadow-xl transition-all flex items-center justify-center gap-3 cursor-pointer border-b-4 border-emerald-800";
+                startIconBg.className = "w-10 h-10 rounded-full bg-white/20 flex items-center justify-center";
+                startIcon.className = "fa-solid fa-microphone text-white text-xl";
+            } else {
+                groupNameWarning.classList.remove('hidden');
+                startRecordBtn.disabled = true;
+                startRecordBtn.className = "w-full bg-slate-300 text-slate-500 font-black text-xl sm:text-2xl py-6 px-6 rounded-3xl shadow-md transition-all flex items-center justify-center gap-3 cursor-not-allowed";
+                startIconBg.className = "w-10 h-10 rounded-full bg-white/40 flex items-center justify-center";
+                startIcon.className = "fa-solid fa-microphone text-slate-400 text-xl";
+            }
+        });
+
+        // Time Selection Handlers
+        timeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                timeBtns.forEach(b => {
+                    b.classList.remove('border-emerald-500', 'bg-emerald-50/80', 'ring-2', 'ring-emerald-400/30');
+                    b.classList.add('border-slate-200', 'bg-slate-50');
+                    const num = b.querySelector('span:first-child');
+                    const sub = b.querySelector('span:last-child');
+                    if(num) {
+                        num.classList.remove('text-emerald-700');
+                        num.classList.add('text-slate-700');
+                    }
+                    if(sub) {
+                        sub.classList.remove('text-emerald-600');
+                        sub.classList.add('text-slate-400');
+                    }
+                });
+
+                btn.classList.remove('border-slate-200', 'bg-slate-50');
+                btn.classList.add('border-emerald-500', 'bg-emerald-50/80', 'ring-2', 'ring-emerald-400/30');
+                const num = btn.querySelector('span:first-child');
+                const sub = btn.querySelector('span:last-child');
+                if(num) {
+                    num.classList.remove('text-slate-700');
+                    num.classList.add('text-emerald-700');
+                }
+                if(sub) {
+                    sub.classList.remove('text-slate-400');
+                    sub.classList.add('text-emerald-600');
+                }
+
+                selectedMinutes = parseInt(btn.dataset.minutes, 10);
+            });
+        });
+
+        // Detect supported MIME Types for MediaRecorder
+        function getSupportedMimeType() {
+            if (typeof MediaRecorder === 'undefined') return '';
+            const types = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/mp4',
+                'audio/aac',
+                'audio/ogg;codecs=opus'
+            ];
+            for (const type of types) {
+                if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type)) return type;
+            }
+            return '';
+        }
+
+        function getFileExtension(mimeType) {
+            if (!mimeType) return 'webm';
+            if (mimeType.includes('mp4') || mimeType.includes('aac')) return 'm4a';
+            if (mimeType.includes('ogg')) return 'ogg';
+            return 'webm';
+        }
+
+        // Start Recording Handler
+        async function startRecording() {
+            const groupName = groupNameInput.value.trim();
+            if (!groupName) {
+                showToast('グループ名を入力してください', 'fa-circle-exclamation', 'text-amber-400');
+                return;
+            }
+
+            try {
+                // Directly request user media stream upon button click (critical for iOS/iFrames)
+                microphoneStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+
+                audioChunks = [];
+                const mimeType = getSupportedMimeType();
+                const recorderOptions = mimeType ? { mimeType } : {};
+
+                try {
+                    mediaRecorder = new MediaRecorder(microphoneStream, recorderOptions);
+                } catch (recErr) {
+                    mediaRecorder = new MediaRecorder(microphoneStream);
+                }
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    const finalType = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm';
+                    audioBlob = new Blob(audioChunks, { type: finalType });
+
+                    // Set up local audio player preview
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPreview.src = audioUrl;
+
+                    // Clean up microphone tracks
+                    if (microphoneStream) {
+                        microphoneStream.getTracks().forEach(track => track.stop());
+                        microphoneStream = null;
+                    }
+
+                    if (animFrameId) cancelAnimationFrame(animFrameId);
+
+                    activeRecordingCard.classList.add('hidden');
+                    submissionFlowCard.classList.remove('hidden');
+                    showToast('録音が完了しました！提出用にダウンロードしてください。', 'fa-circle-check', 'text-emerald-400');
+                };
+
+                // Start recording in 1 second chunks
+                mediaRecorder.start(1000);
+
+                // Initialize Audio Equalizer Visualizer
+                setupEqualizer(microphoneStream);
+
+                // UI Layout updates
+                activeGroupNameDisplay.textContent = groupName;
+                setupSection.classList.add('hidden');
+                startContainer.classList.add('hidden');
+                activeRecordingCard.classList.remove('hidden');
+
+                // Timer setup
+                remainingSeconds = selectedMinutes * 60;
+                updateTimerDisplay();
+
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    remainingSeconds--;
+                    updateTimerDisplay();
+
+                    if (remainingSeconds <= 0) {
+                        stopRecording();
+                    }
+                }, 1000);
+
+                showToast('録音を開始しました。イコライザーで音量を確認できます。', 'fa-microphone', 'text-emerald-400');
+
+            } catch (err) {
+                console.error("Microphone access error:", err);
+                let msg = 'マイクにアクセスできませんでした。';
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    msg = 'マイクの使用許可が拒否されています。ブラウザのアドレスバー付近の設定からマイク許可を【オン】にしてください。';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    msg = 'マイクが見つかりませんでした。端末のマイク接続を確認してください。';
+                }
+                showToast(msg, 'fa-triangle-exclamation', 'text-rose-400');
+            }
+        }
+
+        // Stop Recording Handler
+        function stopRecording() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            countdownTimer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        // Audio Equalizer Visualizer Logic
+        function setupEqualizer(stream) {
+            if (!canvas || !canvasCtx) return;
+            resizeCanvas();
+
+            try {
+                const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtxClass) return;
+
+                audioContext = new AudioCtxClass();
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                analyser.fftSize = 64;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                function renderEqualizer() {
+                    animFrameId = requestAnimationFrame(renderEqualizer);
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Clear canvas
+                    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    const barWidth = (canvas.width / bufferLength) * 1.6;
+                    let barHeight;
+                    let x = 0;
+
+                    let totalVol = 0;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+                        totalVol += dataArray[i];
+
+                        // Gradient bars (Emerald to Teal to Cyan)
+                        const gradient = canvasCtx.createLinearGradient(0, canvas.height, 0, 0);
+                        gradient.addColorStop(0, '#10b981');
+                        gradient.addColorStop(0.6, '#14b8a6');
+                        gradient.addColorStop(1, '#06b6d4');
+
+                        canvasCtx.fillStyle = gradient;
+                        
+                        // Rounded top bars
+                        const radius = Math.min(barWidth / 2, 4);
+                        const y = canvas.height - barHeight;
+                        
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(x + radius, y);
+                        canvasCtx.lineTo(x + barWidth - 2 - radius, y);
+                        canvasCtx.quadraticCurveTo(x + barWidth - 2, y, x + barWidth - 2, y + radius);
+                        canvasCtx.lineTo(x + barWidth - 2, canvas.height);
+                        canvasCtx.lineTo(x, canvas.height);
+                        canvasCtx.lineTo(x, y + radius);
+                        canvasCtx.quadraticCurveTo(x, y, x + radius, y);
+                        canvasCtx.closePath();
+                        canvasCtx.fill();
+
+                        x += barWidth + 2;
+                    }
+
+                    // Display microphone volume status text
+                    const avgVol = totalVol / bufferLength;
+                    const micSensitivityText = document.getElementById('micSensitivityText');
+                    if (micSensitivityText) {
+                        if (avgVol > 15) {
+                            micSensitivityText.textContent = "🟢 音声を入力中 (正常)";
+                            micSensitivityText.className = "text-emerald-400 font-bold";
+                        } else {
+                            micSensitivityText.textContent = "🟡 待機中 (声を出してください)";
+                            micSensitivityText.className = "text-amber-400 font-bold";
+                        }
+                    }
+                }
+
+                renderEqualizer();
+            } catch (e) {
+                console.error("Equalizer setup failed", e);
+            }
+        }
+
+        // Attach event listeners
+        startRecordBtn.addEventListener('click', startRecording);
+        stopRecordBtn.addEventListener('click', stopRecording);
+
+        // Download Recording Logic
+        downloadBtn.addEventListener('click', () => {
+            if (!audioBlob) return;
+
+            const now = new Date();
+            const timeStr = `${now.getMonth()+1}月${now.getDate()}日_${now.getHours()}時${now.getMinutes()}分`;
+            const rawGroupName = groupNameInput.value.trim() || "グループ名";
+            const safeGroupName = rawGroupName.replace(/[\\/:*?"<>|]/g, '_');
+            const ext = getFileExtension(audioBlob.type);
+            const fileName = `【${safeGroupName}】_録音データ_${timeStr}.${ext}`;
+
+            const url = URL.createObjectURL(audioBlob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 200);
+
+            showToast('ファイルをダウンロードしました！Googleフォームから提出してください。', 'fa-circle-check', 'text-emerald-400');
+        });
+
+        // Reset App State
+        resetAppBtn.addEventListener('click', () => {
+            confirmResetModal.classList.remove('hidden');
+        });
+
+        cancelResetBtn.addEventListener('click', () => {
+            confirmResetModal.classList.add('hidden');
+        });
+
+        acceptResetBtn.addEventListener('click', () => {
+            confirmResetModal.classList.add('hidden');
+            audioBlob = null;
+            audioChunks = [];
+            audioPreview.src = '';
+            submissionFlowCard.classList.add('hidden');
+            activeRecordingCard.classList.add('hidden');
+            setupSection.classList.remove('hidden');
+            startContainer.classList.remove('hidden');
+            showToast('初期状態に戻しました。', 'fa-arrow-rotate-left', 'text-teal-400');
+        });
+
+        // Form Settings Modal Logic
+        openSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+
+        saveSettingsBtn.addEventListener('click', () => {
+            const url = formUrlInput.value.trim();
+            if (url) {
+                try {
+                    localStorage.setItem(STORAGE_FORM_KEY, url);
+                } catch (e) {}
+                openFormBtn.href = url;
+                showToast('提出先フォームのURLを保存しました！', 'fa-circle-check', 'text-emerald-400');
+                settingsModal.classList.add('hidden');
+            } else {
+                showToast('有効なURLを入力してください。', 'fa-triangle-exclamation', 'text-amber-400');
+            }
+        });
+
+        // App Initialization
+        window.addEventListener('load', () => {
+            try {
+                const saved = localStorage.getItem(STORAGE_FORM_KEY);
+                if (saved) {
+                    formUrlInput.value = saved;
+                    openFormBtn.href = saved;
+                } else {
+                    openFormBtn.href = "#";
+                }
+            } catch(e) {}
+            window.addEventListener('resize', resizeCanvas);
+        });
+    </script>
+</body>
+</html>
